@@ -7,11 +7,8 @@ from stego_lsb import hide_bytes as encode, extract_bytes as decode
 
 app = Flask(__name__)
 
-# Folder setup
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-saved_private_key = None
 
 
 # ---------------- HOME ----------------
@@ -34,28 +31,27 @@ def encrypt():
         # Load public key
         public_key = load_public_key(pub_file)
 
-        # Encrypt message (returns tuple)
+        # Encrypt message (ECC + AES)
         eph_pub, iv, tag, ciphertext = encrypt_data(public_key, message.encode())
 
-        # 🔥 FIX: convert tuple → bytes
+        # Convert to bytes payload
         payload = eph_pub + iv + tag + ciphertext
 
         # Save input image
-        input_path = os.path.join(UPLOAD_FOLDER, image.filename)
+        input_path = os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + ".png")
         image.save(input_path)
 
-        # Unique output filename
-        output_filename = f"encrypted_{uuid.uuid4().hex}.png"
-        output_path = os.path.join(UPLOAD_FOLDER, output_filename)
+        # Output file
+        output_path = os.path.join(UPLOAD_FOLDER, "encrypted_" + str(uuid.uuid4()) + ".png")
 
-        # Hide encrypted data in image
+        # Hide encrypted data
         encode(input_path, payload, output_path)
 
         # Send file to user
         return send_file(output_path, as_attachment=True)
 
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error in encrypt: {str(e)}"
 
 
 # ---------------- DECRYPT ----------------
@@ -71,8 +67,8 @@ def decrypt():
         # Load private key
         private_key = load_private_key(priv_file)
 
-        # Save uploaded image
-        input_path = os.path.join(UPLOAD_FOLDER, image.filename)
+        # Save encrypted image
+        input_path = os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + ".png")
         image.save(input_path)
 
         # Extract hidden data
@@ -84,13 +80,13 @@ def decrypt():
         tag = payload[107:123]
         ciphertext = payload[123:]
 
-        # Decrypt
+        # Decrypt message
         message = decrypt_data(private_key, eph_pub, iv, tag, ciphertext)
 
         return f"✅ Decrypted Message: {message.decode()}"
 
     except Exception as e:
-        return f"❌ Error: {str(e)}"
+        return f"❌ Error in decrypt: {str(e)}"
 
 
 # ---------------- RUN ----------------
