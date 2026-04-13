@@ -1,84 +1,87 @@
+from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 
+
+# 🔑 Generate key pair
 def generate_keys():
     private_key = ec.generate_private_key(ec.SECP256R1())
     public_key = private_key.public_key()
     return private_key, public_key
 
 
+# 🔐 Encrypt data
 def encrypt_data(public_key, plaintext):
-    eph_private = ec.generate_private_key(ec.SECP256R1())
-    eph_public = eph_private.public_key()
+    # Generate ephemeral key
+    ephemeral_private_key = ec.generate_private_key(ec.SECP256R1())
+    ephemeral_public_key = ephemeral_private_key.public_key()
 
-    shared_key = eph_private.exchange(ec.ECDH(), public_key)
+    # Shared key (ECDH)
+    shared_key = ephemeral_private_key.exchange(ec.ECDH(), public_key)
 
+    # Derive AES key
     derived_key = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
         salt=None,
-        info=b'handshake'
+        info=b'handshake data'
     ).derive(shared_key)
 
-    aesgcm = AESGCM(derived_key)
-    iv = os.urandom(12)
+    # Generate IV
+    iv = os.urandom(16)
 
-    # plaintext MUST be bytes
-    ciphertext = aesgcm.encrypt(iv, plaintext, None)
+    # AES-GCM Encryption
+    cipher = Cipher(algorithms.AES(derived_key), modes.GCM(iv))
+    encryptor = cipher.encryptor()
 
-    eph_pub_bytes = eph_public.public_bytes(
+    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
+    tag = encryptor.tag
+
+    # Convert public key to bytes
+    eph_pub_bytes = ephemeral_public_key.public_bytes(
         encoding=serialization.Encoding.X962,
         format=serialization.PublicFormat.UncompressedPoint
     )
 
-    return eph_pub_bytes, iv, ciphertext
+    # ✅ RETURN 4 VALUES (IMPORTANT)
+    return eph_pub_bytes, iv, tag, ciphertext
 
 
-def decrypt_data(private_key, eph_pub_bytes, iv, ciphertext):
-    eph_public = ec.EllipticCurvePublicKey.from_encoded_point(
-        ec.SECP256R1(), eph_pub_bytes
+# 🔓 Decrypt data
+def decrypt_data(private_key, eph_pub_bytes, iv, tag, ciphertext):
+    # Convert bytes → public key
+    eph_public_key = ec.EllipticCurvePublicKey.from_encoded_point(
+        ec.SECP256R1(),
+        eph_pub_bytes
     )
 
-    shared_key = private_key.exchange(ec.ECDH(), eph_public)
+    # Shared key
+    shared_key = private_key.exchange(ec.ECDH(), eph_public_key)
 
+    # Derive AES key
     derived_key = HKDF(
         algorithm=hashes.SHA256(),
         length=32,
         salt=None,
-        info=b'handshake'
+        info=b'handshake data'
     ).derive(shared_key)
 
-    aesgcm = AESGCM(derived_key)
+    # AES-GCM Decryption (IMPORTANT: include tag)
+    cipher = Cipher(algorithms.AES(derived_key), modes.GCM(iv, tag))
+    decryptor = cipher.decryptor()
 
-    decrypted = aesgcm.decrypt(iv, ciphertext, None)
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 
-    return decrypted
+    return plaintext
 
-def save_private_key(private_key, filename):
-    with open(filename, "wb") as f:
-        f.write(
-            private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
-            )
-        )
 
-def save_public_key(public_key, filename):
-    with open(filename, "wb") as f:
-        f.write(
-            public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
-        )
-
-def load_private_key(file):
-    return serialization.load_pem_private_key(file.read(), password=None)
-
+# 🔐 Load public key from uploaded file
 def load_public_key(file):
     return serialization.load_pem_public_key(file.read())
+
+
+# 🔓 Load private key from uploaded file
+def load_private_key(file):
+    return serialization.load_pem_private_key(file.read(), password=None)
