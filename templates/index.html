@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Secure Stego</title>
+</head>
+<body>
+
+<h2>Encrypt</h2>
+<form action="/encrypt" method="post" enctype="multipart/form-data">
+    <input type="file" name="image" required><br><br>
+
+    <textarea name="message" placeholder="Enter secret message"></textarea><br><br>
+
+    <label>Upload Public Key:</label><br>
+    <input type="file" name="public_key" required><br><br>
+
+    <button type="submit">Encrypt</button>
+</form>
+
+<hr>
+
+<h2>Decrypt</h2>
+<form action="/decrypt" method="post" enctype="multipart/form-data">
+    <input type="file" name="image" required><br><br>
+
+    <label>Upload Private Key:</label><br>
+    <input type="file" name="private_key" required><br><br>
+
+    <button type="submit">Decrypt</button>
+</form>
+
+</body>
+</html>
