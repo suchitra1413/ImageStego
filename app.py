@@ -2,93 +2,97 @@ from flask import Flask, render_template, request, send_file
 import os
 import uuid
 
-from ecc_crypto import encrypt_data, decrypt_data, generate_keys
+from ecc_crypto import encrypt_data, decrypt_data, load_public_key, load_private_key
 from stego_lsb import hide_bytes as encode, extract_bytes as decode
 
 app = Flask(__name__)
 
+# Folder setup
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Temporary storage (for demo)
 saved_private_key = None
 
 
+# ---------------- HOME ----------------
 @app.route('/')
 def home():
     return render_template('index.html')
 
 
-# 🔐 ENCRYPT ROUTE
+# ---------------- ENCRYPT ----------------
 @app.route('/encrypt', methods=['POST'])
 def encrypt():
-    global saved_private_key
+    try:
+        image = request.files.get('image')
+        message = request.form.get('message')
+        pub_file = request.files.get('public_key')
 
-    image = request.files.get('image')
-    message = request.form.get('message')
+        if not image or not message or not pub_file:
+            return "❌ Missing input!"
 
-    if not image or not message:
-        return "Image or message missing!"
+        # Load public key
+        public_key = load_public_key(pub_file)
 
-    # Save input image
-    input_filename = str(uuid.uuid4()) + ".png"
-    input_path = os.path.join(UPLOAD_FOLDER, input_filename)
-    image.save(input_path)
+        # Encrypt message (returns tuple)
+        eph_pub, iv, tag, ciphertext = encrypt_data(public_key, message.encode())
 
-    # Generate keys automatically
-    private_key, public_key = generate_keys()
-    saved_private_key = private_key
+        # 🔥 FIX: convert tuple → bytes
+        payload = eph_pub + iv + tag + ciphertext
 
-    # Encrypt message
-    encrypted_data = encrypt_data(public_key, message.encode())
+        # Save input image
+        input_path = os.path.join(UPLOAD_FOLDER, image.filename)
+        image.save(input_path)
 
-    # Output file (IMPORTANT: always use extension)
-    output_filename = "encrypted_" + str(uuid.uuid4()) + ".png"
-    output_path = os.path.join(UPLOAD_FOLDER, output_filename)
+        # Unique output filename
+        output_filename = f"encrypted_{uuid.uuid4().hex}.png"
+        output_path = os.path.join(UPLOAD_FOLDER, output_filename)
 
-    # Hide encrypted data in image
-    encode(input_path, encrypted_data, output_path)
+        # Hide encrypted data in image
+        encode(input_path, payload, output_path)
 
-    # Check file exists
-    if not os.path.exists(output_path):
-        return "Error: Encrypted file not created"
+        # Send file to user
+        return send_file(output_path, as_attachment=True)
 
-    # Send file to user (DOWNLOAD)
-    return send_file(output_path, as_attachment=True)
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
 
-# 🔓 DECRYPT ROUTE
+# ---------------- DECRYPT ----------------
 @app.route('/decrypt', methods=['POST'])
 def decrypt():
-    global saved_private_key
+    try:
+        image = request.files.get('image')
+        priv_file = request.files.get('private_key')
 
-    image = request.files.get('image')
+        if not image or not priv_file:
+            return "❌ Missing input!"
 
-    if not image:
-        return "No image uploaded!"
+        # Load private key
+        private_key = load_private_key(priv_file)
 
-    if saved_private_key is None:
-        return "No private key found! Please encrypt first."
+        # Save uploaded image
+        input_path = os.path.join(UPLOAD_FOLDER, image.filename)
+        image.save(input_path)
 
-    # Save uploaded encrypted image
-    input_filename = str(uuid.uuid4()) + ".png"
-    input_path = os.path.join(UPLOAD_FOLDER, input_filename)
-    image.save(input_path)
+        # Extract hidden data
+        payload = decode(input_path)
 
-    # Extract hidden data
-    payload = decode(input_path)
+        # Split payload correctly
+        eph_pub = payload[:91]
+        iv = payload[91:107]
+        tag = payload[107:123]
+        ciphertext = payload[123:]
 
-    # Split payload (same as your logic)
-    eph_pub = payload[:91]
-    iv = payload[91:107]
-    tag = payload[107:123]
-    cipher = payload[123:]
+        # Decrypt
+        message = decrypt_data(private_key, eph_pub, iv, tag, ciphertext)
 
-    # Decrypt
-    message = decrypt_data(saved_private_key, eph_pub, iv, tag, cipher)
+        return f"✅ Decrypted Message: {message.decode()}"
 
-    return f"✅ Decrypted Message: {message.decode()}"
+    except Exception as e:
+        return f"❌ Error: {str(e)}"
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# ---------------- RUN ----------------
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
