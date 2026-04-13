@@ -75,11 +75,20 @@ def decrypt():
         payload = decode(input_path)
 
         # Split payload correctly
-        eph_pub = payload[:91]
-        iv = payload[91:107]
-        tag = payload[107:123]
-        ciphertext = payload[123:]
+        # Read eph_pub length
+        eph_len = int.from_bytes(payload[:4], 'big')
 
+        start = 4
+        eph_pub = payload[start:start+eph_len]
+        start += eph_len
+
+        iv = payload[start:start+16]
+        start += 16
+
+        tag = payload[start:start+16]
+        start += 16
+
+        ciphertext = payload[start:]
         # Decrypt message
         message = decrypt_data(private_key, eph_pub, iv, tag, ciphertext)
 
