@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, send_file
 import os
 import uuid
 
-from ecc_crypto import encrypt_data, decrypt_data, load_public_key, load_private_key
+from ecc_crypto import encrypt_data, decrypt_data
 from stego_lsb import hide_bytes as encode, extract_bytes as decode
 
 app = Flask(__name__)
@@ -23,19 +23,12 @@ def encrypt():
     try:
         image = request.files.get('image')
         message = request.form.get('message')
-        pub_file = request.files.get('public_key')
 
-        if not image or not message or not pub_file:
+        if not image or not message:
             return "❌ Missing input!"
 
-        # Load public key
-        public_key = load_public_key(pub_file)
-
-        # Encrypt message (ECC + AES)
-        eph_pub, iv, tag, ciphertext = encrypt_data(public_key, message.encode())
-
-        # Convert to bytes payload
-        payload = eph_pub + iv + tag + ciphertext
+        # Simple encryption
+        payload = encrypt_data(None, message.encode())
 
         # Save input image
         input_path = os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + ".png")
@@ -44,10 +37,10 @@ def encrypt():
         # Output file
         output_path = os.path.join(UPLOAD_FOLDER, "encrypted_" + str(uuid.uuid4()) + ".png")
 
-        # Hide encrypted data
+        # Hide data in image
         encode(input_path, payload, output_path)
 
-        # Send file to user
+        # Download file
         return send_file(output_path, as_attachment=True)
 
     except Exception as e:
@@ -59,38 +52,19 @@ def encrypt():
 def decrypt():
     try:
         image = request.files.get('image')
-        priv_file = request.files.get('private_key')
 
-        if not image or not priv_file:
-            return "❌ Missing input!"
+        if not image:
+            return "❌ Missing image!"
 
-        # Load private key
-        private_key = load_private_key(priv_file)
-
-        # Save encrypted image
+        # Save image
         input_path = os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + ".png")
         image.save(input_path)
 
-        # Extract hidden data
+        # Extract data
         payload = decode(input_path)
 
-        # Split payload correctly
-        # Read eph_pub length
-        eph_len = int.from_bytes(payload[:4], 'big')
-
-        start = 4
-        eph_pub = payload[start:start+eph_len]
-        start += eph_len
-
-        iv = payload[start:start+16]
-        start += 16
-
-        tag = payload[start:start+16]
-        start += 16
-
-        ciphertext = payload[start:]
-        # Decrypt message
-        message = decrypt_data(private_key, eph_pub, iv, tag, ciphertext)
+        # Decrypt
+        message = decrypt_data(None, payload)
 
         return f"✅ Decrypted Message: {message.decode()}"
 
