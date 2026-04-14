@@ -85,3 +85,21 @@ def load_public_key(file):
 # 🔓 Load private key
 def load_private_key(file):
     return serialization.load_pem_private_key(file.read(), password=None)
+
+# 💾 Save private key
+def save_private_key(private_key, filename):
+    with open(filename, "wb") as f:
+        f.write(private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        ))
+
+
+# 💾 Save public key
+def save_public_key(public_key, filename):
+    with open(filename, "wb") as f:
+        f.write(public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ))
