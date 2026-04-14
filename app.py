@@ -96,7 +96,7 @@ def decrypt():
         image.save(input_path)
 
         payload = decode(input_path)
-
+        payload = bytes(payload)
         eph_len = int.from_bytes(payload[:4], 'big')
 
         start = 4
