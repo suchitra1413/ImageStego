@@ -60,4 +60,4 @@ def extract_bytes(image_path):
         if data[-4:] == DELIMITER:
             break
 
-    return bytes(data[:-4])
+    return bytes(data[:-len(DELIMITER)])
