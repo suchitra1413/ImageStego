@@ -1,4 +1,10 @@
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+
+def generate_keys():
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_key = private_key.public_key()
+    return private_key, public_key
 def encrypt_data(public_key, plaintext):
     return plaintext[::-1]
 
