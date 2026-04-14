@@ -21,3 +21,11 @@ def save_public_key(public_key, filename):
     )
     with open(filename, 'wb') as f:
         f.write(pem)
+def load_public_key(file):
+    from cryptography.hazmat.primitives import serialization
+    return serialization.load_pem_public_key(file.read())
+
+
+def load_private_key(file):
+    from cryptography.hazmat.primitives import serialization
+    return serialization.load_pem_private_key(file.read(), password=None)
