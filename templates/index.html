@@ -1,39 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Secure Stego</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Stego - Advanced Image Steganography</title>
+    <!-- Modern Web Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <div class="background-animation"></div>
+    <div class="container">
+        <header>
+            <h1 class="gradient-text">Secure Stego</h1>
+            <p class="subtitle">Next-Generation Image Steganography using ECC Encryption</p>
+        </header>
 
-<h1>Secure Image Steganography</h1>
+        <main class="glass-panel">
+            <nav class="tabs">
+                <button class="tab-btn active" data-target="encrypt-tab">Encrypt</button>
+                <button class="tab-btn" data-target="decrypt-tab">Decrypt</button>
+                <button class="tab-btn" data-target="keys-tab">Keys</button>
+            </nav>
 
-<h2>Generate Keys</h2>
-<a href="/generate_keys">Click here to generate keys</a>
+            <div class="tab-content">
+                <!-- Encrypt Tab -->
+                <section id="encrypt-tab" class="tab-pane active">
+                    <h2>Hide Message in Image</h2>
+                    <form id="encrypt-form" class="stego-form">
+                        <div class="input-group">
+                            <label>Cover Image (PNG)</label>
+                            <div class="file-drop-area">
+                                <span class="file-message">Choose an image or drag & drop</span>
+                                <input type="file" name="image" accept="image/png, image/jpeg" required>
+                            </div>
+                        </div>
 
-<hr>
+                        <div class="input-group">
+                            <label>Secret Message</label>
+                            <textarea name="message" placeholder="Enter the secret message to hide..." required></textarea>
+                        </div>
 
-<h2>Encrypt</h2>
-<form action="/encrypt" method="post" enctype="multipart/form-data">
-    <input type="file" name="image" required><br><br>
-    <textarea name="message" placeholder="Enter secret message"></textarea><br><br>
+                        <div class="input-group">
+                            <label>Receiver's Public Key (.pem)</label>
+                            <div class="file-drop-area">
+                                <span class="file-message">Choose public_key.pem</span>
+                                <input type="file" name="public_key" accept=".pem" required>
+                            </div>
+                        </div>
 
-    <label>Upload Receiver Public Key:</label><br>
-    <input type="file" name="public_key" required><br><br>
+                        <button type="submit" class="primary-btn" id="encrypt-btn">
+                            <span class="btn-text">Encrypt & Download</span>
+                            <span class="loader" style="display: none;"></span>
+                        </button>
+                    </form>
+                    <div id="encrypt-result" class="result-message" style="display: none;"></div>
+                </section>
 
-    <button type="submit">Encrypt</button>
-</form>
+                <!-- Decrypt Tab -->
+                <section id="decrypt-tab" class="tab-pane">
+                    <h2>Extract Message from Image</h2>
+                    <form id="decrypt-form" class="stego-form">
+                        <div class="input-group">
+                            <label>Stego Image (PNG)</label>
+                            <div class="file-drop-area">
+                                <span class="file-message">Choose the encrypted image</span>
+                                <input type="file" name="image" accept="image/png" required>
+                            </div>
+                        </div>
 
-<hr>
+                        <div class="input-group">
+                            <label>Your Private Key (.pem)</label>
+                            <div class="file-drop-area">
+                                <span class="file-message">Choose private_key.pem</span>
+                                <input type="file" name="private_key" accept=".pem" required>
+                            </div>
+                        </div>
 
-<h2>Decrypt</h2>
-<form action="/decrypt" method="post" enctype="multipart/form-data">
-    <input type="file" name="image" required><br><br>
+                        <button type="submit" class="primary-btn" id="decrypt-btn">
+                            <span class="btn-text">Decrypt Message</span>
+                            <span class="loader" style="display: none;"></span>
+                        </button>
+                    </form>
+                    <div id="decrypt-result" class="result-message" style="display: none;"></div>
+                </section>
 
-    <label>Upload Your Private Key:</label><br>
-    <input type="file" name="private_key" required><br><br>
-
-    <button type="submit">Decrypt</button>
-</form>
-
+                <!-- Keys Tab -->
+                <section id="keys-tab" class="tab-pane">
+                    <h2>Generate ECC Key Pair</h2>
+                    <p class="tab-desc">Generate a secure public/private key pair. The public key is used by others to safely encrypt messages for you, and the private key allows you to decrypt them. <strong>Store your private key securely!</strong></p>
+                    
+                    <button id="generate-keys-btn" class="primary-btn">
+                        <span class="btn-text">Generate New Keys</span>
+                        <span class="loader" style="display: none;"></span>
+                    </button>
+                    
+                    <div id="keys-result" class="keys-download-area" style="display:none;">
+                        <div class="success-alert">✅ Keys generated securely!</div>
+                        <div class="download-links">
+                            <a href="/download/public" class="download-btn public-key-btn">↓ Download Public Key</a>
+                            <a href="/download/private" class="download-btn private-key-btn">↓ Download Private Key</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
